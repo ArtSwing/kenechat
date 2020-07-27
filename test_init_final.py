@@ -1013,11 +1013,14 @@ async def on_ready():
 	
 	global endTime
 	global setting_channel_name
+	global all_guilds
 			
 	print("Logged in as ") #화면에 봇의 아이디, 닉네임이 출력됩니다.
 	print(client.user.name)
 	print(client.user.id)
 	print("===========")
+	
+	all_guilds = client.guilds
 
 	channel_name, channel_id, channel_voice_name, channel_voice_id = await get_guild_channel_info()
 
@@ -1156,7 +1159,7 @@ while True:
 
 			chflg = 1
 		else:
-			for guild in client.guilds:
+			for guild in all_guilds:
 				for text_channel in guild.text_channels:
 					if basicSetting[7] == text_channel.id:
 						curr_guild_info = guild
@@ -1302,32 +1305,21 @@ while True:
 
 			ch_information = []
 			cnt = 0
-			ch_information.append("")
+			ch_information.append('')
+			for i in range(len(channel_name)):
+				if len(ch_information[cnt]) > 900 :
+					ch_information.append('')
+					cnt += 1
+				ch_information[cnt] = ch_information[cnt] + '[' + channel_id[i] + '] ' + channel_name[i] + '\n'
 
 			ch_voice_information = []
 			cntV = 0
-			ch_voice_information.append("")
-
-			for guild in client.guilds:
-				ch_information[cnt] = f"{ch_information[cnt]}👑  {guild.name}  👑\n"
-				for i in range(len(channel_name)):
-					for text_channel in guild.text_channels:
-						if channel_id[i] == str(text_channel.id):
-							if len(ch_information[cnt]) > 900 :
-								ch_information.append("")
-								cnt += 1
-							ch_information[cnt] = f"{ch_information[cnt]}[{channel_id[i]}] {channel_name[i]}\n"
-
-				ch_voice_information[cntV] = f"{ch_voice_information[cntV]}👑  {guild.name}  👑\n"
-				for i in range(len(channel_voice_name)):
-					for voice_channel in guild.voice_channels:
-						if channel_voice_id[i] == str(voice_channel.id):
-							if len(ch_voice_information[cntV]) > 900 :
-								ch_voice_information.append("")
-								cntV += 1
-							ch_voice_information[cntV] = f"{ch_voice_information[cntV]}[{channel_voice_id[i]}] {channel_voice_name[i]}\n"
-					
-			######################
+			ch_voice_information.append('')
+			for i in range(len(channel_voice_name)):
+				if len(ch_voice_information[cntV]) > 900 :
+					ch_voice_information.append('')
+					cntV += 1
+				ch_voice_information[cntV] = ch_voice_information[cntV] + '[' + channel_voice_id[i] + '] ' + channel_voice_name[i] + '\n'
 
 			if len(ch_information) == 1 and len(ch_voice_information) == 1:
 				embed = discord.Embed(
@@ -2662,37 +2654,16 @@ while True:
 			if not args:
 				sorted_item_list = sorted(item_Data.items(), key=lambda x: x[0])
 
-				embed_list : list = []
-				embed_index : int = 0
-				embed_cnt : int = 0
 				embed = discord.Embed(title = '', description = f'`{client.user.name}\'s 창고`', color = 0x00ff00)
-				
-				embed_list.append(embed)
 
 				if len(sorted_item_list) > 0 :
 					for item_id, count in sorted_item_list:
-						embed_cnt += 1
-						if embed_cnt > 24 :
-							embed_cnt = 0
-							embed_index += 1
-							tmp_embed = discord.Embed(
-								title = "",
-								description = "",
-								color=0x00ff00
-								)
-							embed_list.append(tmp_embed)
-						embed_list[embed_index].add_field(name = item_id, value = count)
-					embed_list[len(embed_list)-1].set_footer(text = f"전체 아이템 종류  :  {len(item_Data)}개")
-					if len(embed_list) > 1:
-						for embed_data in embed_list:
-							await asyncio.sleep(0.1)
-							await ctx.send(embed = embed_data)
-						return
-					else:
-						return await ctx.send(embed=embed, tts=False)
+						embed.add_field(name = item_id, value = count)
 				else :
 					embed.add_field(name = '\u200b\n', value = '창고가 비었습니다.\n\u200b')
-					return await ctx.send(embed=embed, tts=False)
+
+				embed.set_footer(text = f"전체 아이템 종류  :  {len(item_Data)}개")
+				return await ctx.send(embed=embed, tts=False)
 
 			input_data = args.split()
 			
@@ -2790,32 +2761,41 @@ while True:
 	@commands.has_permissions(manage_messages=True)
 	@client.command(name=command[34][0], aliases=command[34][1:])
 	async def leaveGuild_(ctx):
-		if ctx.message.channel.id == basicSetting[7]:
-			guild_list : str = ""
-			guild_name : str = ""
+		global all_guilds
 
-			for i, gulid_name in enumerate(client.guilds):
-				guild_list += f"`{i+1}.` {gulid_name}\n"
+		guild_list : str = ""
 
-			embed = discord.Embed(
-				title = "----- 서버 목록 -----",
-				description = guild_list,
-				color=0x00ff00
-				)
-			await ctx.send(embed = embed)
+		for i, gulid_name in enumerate(all_guilds):
+			guild_list += f"`{i+1}.` {gulid_name}\n"
 
-			try:
-				await ctx.send(f"```떠나고 싶은 서버의 [숫자]를 입력하여 선택해 주세요```")
-				message_result : discord.Message = await client.wait_for("message", timeout = 10, check=(lambda message: message.channel == ctx.message.channel and message.author == ctx.message.author))
-			except asyncio.TimeoutError:
-				return await ctx.send(f"```서버 선택 시간이 초과됐습니다! 필요시 명령어를 재입력해 주세요```")
-				
-			try:
-				guild_name = client.guilds[int(message_result.content)-1].name
-				await client.get_guild(client.guilds[int(message_result.content)-1].id).leave()
-				return await ctx.send(f"```[{guild_name}] 서버에서 떠났습니다.!```")
-			except ValueError:
-				return			
+		embed = discord.Embed(
+			title = "----- 길드 목록 -----",
+			description = guild_list,
+			color=0x00ff00
+			)
+		await ctx.send(embed = embed)
+
+		try:
+			await ctx.send(f"```떠나고 싶은 서버의 [숫자]를 입력하여 선택해 주세요```")
+			message_result : discord.Message = await client.wait_for("message", timeout = 10, check=(lambda message: message.channel == ctx.message.channel and message.author == ctx.message.author))
+		except asyncio.TimeoutError:
+			return await ctx.send(f"```서버 선택 시간이 초과됐습니다! 필요시 명령어를 재입력해 주세요```")
+			
+		await client.get_guild(all_guilds[int(message_result.content)-1].id).leave()
+
+		all_guilds = client.guilds
+
+		guild_list : str = ""
+
+		for i, gulid_name in enumerate(all_guilds):
+			guild_list += f"`{i+1}.` {gulid_name}\n"
+
+		embed = discord.Embed(
+			title = "----- 길드 목록 -----",
+			description = guild_list,
+			color=0x00ff00
+			)
+		await ctx.send(embed = embed)
 
 	################ ?????????????? ################ 
 	@client.command(name='!오빠')
